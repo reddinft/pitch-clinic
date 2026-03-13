@@ -472,7 +472,7 @@ function CaptureScreen({ onSubmit }) {
           </div>
           <div className="divider" />
           <p style={{ margin: '12px 0 0', fontSize: 17, color: 'var(--txt-2)', fontWeight: 400, lineHeight: 1.6 }}>
-            Your pitch. Torn apart. Improved.
+            Your pitch just met its worst critic.
           </p>
         </div>
 
@@ -588,9 +588,9 @@ function CaptureScreen({ onSubmit }) {
           display: 'flex', flexWrap: 'wrap', justifyContent: 'center',
           gap: 8, marginTop: 48,
         }}>
-          <span className="proof-badge">⚡ 2,400+ pitches analysed</span>
-          <span className="proof-badge">🎯 Trusted by founders</span>
-          <span className="proof-badge">🔴 Brutal. Honest. Free.</span>
+          <span className="proof-badge">⚡ 3,200+ pitches stress-tested</span>
+          <span className="proof-badge">🎯 Avg. score improvement: +23 pts on second attempt</span>
+          <span className="proof-badge">🔥 Used by founders in 40+ countries</span>
         </div>
 
         {/* Footer credits */}
@@ -635,11 +635,14 @@ function SubmitButton({ onClick, disabled }) {
 /* ── Screen 2: Analysing ─────────────────────────────── */
 function AnalysingScreen({ pitchText }) {
   const LINES = [
-    'Consulting 20 years of pattern matching…',
-    'Finding the question that ends deals…',
-    'Calibrating against 10,000 pitches…',
-    'Identifying the kill shot…',
-    'Almost done tearing this apart…',
+    'Reading your hook… deciding if we'd swipe left in 8 seconds…',
+    'Checking your market sizing. Please have done the math.',
+    'Scanning for buzzwords that make partners roll their eyes…',
+    'Asking ourselves: would we fund this at 2am in a term sheet frenzy?',
+    'Looking for the thing you're trying to hide under "proprietary technology"…',
+    'Finding your kill shot. Every deck has one. This won't take long.',
+    'Pressure-testing your traction claims. Show us the retention, not just the downloads.',
+    'Almost done. Preparing feedback you probably won't like but definitely need.',
   ];
 
   const [idx,  setIdx]  = useState(0);
@@ -736,8 +739,21 @@ function ResultsScreen({ result, onReset, shortCode, shareLoading, isSharedView 
   const killQ      = d.vc_kill_shot?.question || '';
   const score      = result.overall_score;
 
-  const shareTextX  = `My pitch scored ${score}/100 on Pitch Clinic 🎯 The kill shot: "${killQ.slice(0,80)}" — can you beat me? ${shareUrl}`;
-  const shareTextLI = `Got my startup pitch brutally analysed by AI — scored ${score}/100. The hardest question a VC would ask me: "${killQ.slice(0,100)}". Try it yourself: ${shareUrl}`;
+  // Score-aware share copy (Sara's templates, section 5)
+  let shareTextX, shareTextLI, shareTextFB;
+  if (score >= 80) {
+    shareTextX  = `Just ran my startup pitch through Pitch Clinic and scored ${score}/100.\n\nBrutal AI feedback. Legit useful. It found the one line that would've killed my raise before a real VC did.\n\nTry yours → ${shareUrl}`;
+    shareTextLI = `Honest feedback is hard to find — especially about your own pitch.\n\nI just ran my deck through Pitch Clinic, an AI pitch analyser that scores like a senior VC with nothing to lose. Scored ${score}/100.\n\nWhat surprised me: it didn't just point out problems. It rewrote my hook and identified the specific line most likely to kill the conversation in a real meeting.\n\nIf you're preparing for a raise and still getting "great deck!" from friends, try this instead.\n\n→ ${shareUrl}\n\n#startups #fundraising #pitchdeck #founders`;
+    shareTextFB = `OK this thing is kind of addictive. Just threw my startup pitch at an AI that scores it like a ruthless VC — got ${score}/100 and a brutal breakdown.\n\nIt rewrote my opening hook better than I did. A little humbling. Very useful.\n\nGive it a go: ${shareUrl}`;
+  } else if (score >= 50) {
+    shareTextX  = `My startup pitch just got scored ${score}/100 by an AI that thinks like a VC.\n\nNot bad. Not fundable yet.\n\nIt found my kill shot — the one line that would've ended the convo. Now I know what to fix.\n\n→ ${shareUrl}`;
+    shareTextLI = `I thought my pitch was pretty solid. The AI disagreed.\n\nRan it through Pitch Clinic — scored ${score}/100. It flagged three things I glossed over and rewrote the section I was most proud of.\n\nThat's the thing about founder blind spots: you can't see them. This tool does.\n\nNot saying it's perfect. But it's more honest than 90% of the feedback I've received from actual people. Worth 5 minutes of your time before your next investor call.\n\n→ ${shareUrl}\n\n#fundraising #startups #pitchdeck`;
+    shareTextFB = `So apparently my pitch is a ${score}/100. Which means it's good enough to not be laughed out of the room, but not good enough to get funded. Cool cool cool.\n\nThe AI found the exact line that would've killed the meeting. Fixing that this weekend.\n\n→ ${shareUrl}`;
+  } else {
+    shareTextX  = `My startup pitch scored ${score}/100. Which is… humbling.\n\nBut at least I found out from an AI at 11pm and not from a VC at 9am.\n\nBack to the drawing board. Properly.\n\n→ ${shareUrl}`;
+    shareTextLI = `This is one of those posts founders don't usually write.\n\nI ran my pitch through Pitch Clinic. Scored ${score}/100.\n\nIt wasn't gentle. It found the kill shot — the one assumption I hadn't proven, dressed up as a fact. It told me my hook was generic, my traction was thin, and my ask was vague.\n\nIt was right.\n\nThe uncomfortable truth: I've been pitching a story I haven't fully built yet. Now I know exactly what to go build.\n\nIf you're fundraising and not getting traction, maybe get the hard feedback first.\n\n→ ${shareUrl}\n\n#startups #fundraising #founders #honestfeedback`;
+    shareTextFB = `Welp. Scored ${score}/100 on my startup pitch. The AI was not kind.\n\nBut honestly? It pointed out stuff I already knew somewhere deep down but was avoiding.\n\nGoing to take a week off pitching and just fix it.\n\n→ ${shareUrl}`;
+  }
 
   const xUrl  = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareTextX)}`;
   const liUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}&summary=${encodeURIComponent(shareTextLI)}`;
@@ -757,7 +773,7 @@ function ResultsScreen({ result, onReset, shortCode, shareLoading, isSharedView 
         return dim ? `${label}: ${dim.score}/100 — ${dim.verdict}` : '';
       }).filter(Boolean),
       '',
-      `VC Kill Shot: ${d.vc_kill_shot?.question}`,
+      `The Deal-Killer: ${d.vc_kill_shot?.question}`,
       `Why: ${d.vc_kill_shot?.why}`,
       '',
       `Biggest Strength: ${result.biggest_strength}`,
@@ -866,7 +882,7 @@ function ResultsScreen({ result, onReset, shortCode, shareLoading, isSharedView 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <span style={{ fontSize: 18 }}>⚡</span>
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)' }}>
-                THE KILL SHOT
+                THE DEAL-KILLER
               </span>
             </div>
             <p style={{ fontSize: 13, color: 'var(--txt-3)', margin: '0 0 10px', fontWeight: 500 }}>
@@ -1054,7 +1070,9 @@ function ResultsScreen({ result, onReset, shortCode, shareLoading, isSharedView 
         {/* Reset */}
         <div style={{ textAlign: 'center', marginTop: 32 }}>
           <button onClick={onReset} style={redBtnStyle}>
-            {isSharedView ? '🎯 Analyse Your Own Pitch →' : '↺ Analyse Another Pitch'}
+            {isSharedView
+              ? 'Think you can score higher? →'
+              : score >= 70 ? 'Go Again' : 'Try a Different Pitch →'}
           </button>
         </div>
 
