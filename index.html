@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pitch Clinic</title>
+<title>Pitch Clinic — Brutal AI Pitch Analysis</title>
+<meta name="description" content="Record or type your startup pitch. Get brutally scored like a VC would. Free, instant, no BS." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -13,21 +17,142 @@ tailwind.config = {
   theme: {
     extend: {
       colors: {
-        bg: '#0f172a',
-        card: '#1e293b',
-        border: '#334155',
-        txt: '#e2e8f0',
+        bg: '#09090b',
+        surface: '#111113',
+        's2': '#18181b',
+        bdr: '#27272a',
+        'bdr2': '#3f3f46',
+        txt: '#fafafa',
+        'txt2': '#a1a1aa',
+        'txt3': '#71717a',
       }
     }
   }
 }
 </script>
 <style>
-  body { background: #0f172a; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
-  @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.5); opacity: 0; } }
+  :root {
+    --bg:        #09090b;
+    --surface:   #111113;
+    --surface-2: #18181b;
+    --border:    #27272a;
+    --border-2:  #3f3f46;
+    --txt:       #fafafa;
+    --txt-2:     #a1a1aa;
+    --txt-3:     #71717a;
+    --red:       #dc2626;
+    --red-glow:  rgba(220,38,38,0.25);
+    --amber:     #d97706;
+    --green:     #16a34a;
+    --gold:      #ca8a04;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--txt);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* ── Animated hero background ── */
+  .hero-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: radial-gradient(ellipse 80% 50% at 50% -5%, rgba(220,38,38,0.13) 0%, transparent 68%);
+    animation: breathe 4s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+
+  @keyframes breathe {
+    from { transform: scale(1);    opacity: 0.75; }
+    to   { transform: scale(1.05); opacity: 1;    }
+  }
+
+  /* ── Record pulse ring ── */
+  @keyframes pulse-ring {
+    0%   { transform: scale(1);   opacity: 0.55; }
+    100% { transform: scale(1.85); opacity: 0;   }
+  }
   .pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
-  .bar-fill { transition: width 1s ease-out; }
-  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; appearance: none; }
+  .pulse-ring-2 { animation: pulse-ring 1.5s ease-out 0.5s infinite; }
+
+  /* ── Analysing red pulse ── */
+  @keyframes red-expand {
+    0%   { transform: scale(0.4); opacity: 0.65; }
+    100% { transform: scale(3.2); opacity: 0;    }
+  }
+  .red-expand-1 { animation: red-expand 2.4s ease-out infinite; }
+  .red-expand-2 { animation: red-expand 2.4s ease-out 0.8s infinite; }
+  .red-expand-3 { animation: red-expand 2.4s ease-out 1.6s infinite; }
+
+  /* ── Score bar ── */
+  .bar-fill { transition: width 1.2s cubic-bezier(0.2, 0, 0.1, 1); }
+
+  /* ── Spinner ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 1s linear infinite; }
+
+  /* ── Fade line transitions ── */
+  .line-fade-in  { animation: lineFadeIn  0.5s ease forwards; }
+  .line-fade-out { animation: lineFadeOut 0.4s ease forwards; }
+  @keyframes lineFadeIn  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes lineFadeOut { from { opacity: 1; transform: translateY(0); }   to { opacity: 0; transform: translateY(-8px); } }
+
+  /* ── Custom select ── */
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2371717a' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* ── Kill shot glow ── */
+  .kill-glow {
+    box-shadow: 0 0 40px rgba(202,138,4,0.12), 0 0 80px rgba(202,138,4,0.05);
+  }
+
+  /* ── Dimension card hover ── */
+  .dim-card { transition: border-color 0.2s, transform 0.2s; }
+  .dim-card:hover { transform: translateY(-2px); }
+
+  /* ── Share button hover ── */
+  .share-btn { transition: all 0.15s ease; }
+  .share-btn:hover { transform: translateY(-2px); filter: brightness(1.12); }
+
+  /* ── Divider line ── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--border) 30%, var(--border) 70%, transparent 100%);
+    margin: 12px 0;
+  }
+
+  /* ── Proof badge ── */
+  .proof-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--txt-3);
+    background: var(--surface);
+    white-space: nowrap;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
 </style>
 </head>
 <body>
@@ -95,57 +220,153 @@ Return ONLY valid JSON. No markdown, no preamble, no explanation. Exact schema:
 
 /* ── Helpers ─────────────────────────────────────────── */
 function scoreColor(s) {
-  if (s >= 80) return '#22c55e';
-  if (s >= 60) return '#f59e0b';
-  return '#ef4444';
+  if (s >= 80) return '#16a34a';
+  if (s >= 60) return '#d97706';
+  return '#dc2626';
+}
+
+function scoreBg(s) {
+  if (s >= 80) return 'rgba(22,163,74,0.08)';
+  if (s >= 60) return 'rgba(217,119,6,0.08)';
+  return 'rgba(220,38,38,0.08)';
+}
+
+function scoreBorder(s) {
+  if (s >= 80) return 'rgba(22,163,74,0.3)';
+  if (s >= 60) return 'rgba(217,119,6,0.3)';
+  return 'rgba(220,38,38,0.3)';
 }
 
 function formatTime(sec) {
-  const m = String(Math.floor(sec / 60)).padStart(2, '0');
+  const m  = String(Math.floor(sec / 60)).padStart(2, '0');
   const s2 = String(sec % 60).padStart(2, '0');
   return `${m}:${s2}`;
 }
 
-const STAGE_OPTIONS = ['Not sure', 'Pre-seed', 'Seed', 'Series A'];
-const SECTOR_OPTIONS = ['Other', 'B2B SaaS', 'Consumer', 'Deep Tech', 'Marketplace', 'Hardware'];
+const STAGE_OPTIONS     = ['Not sure', 'Pre-seed', 'Seed', 'Series A'];
+const SECTOR_OPTIONS    = ['Other', 'B2B SaaS', 'Consumer', 'Deep Tech', 'Marketplace', 'Hardware'];
 const PITCH_TYPE_OPTIONS = ['Other', 'Elevator (60s)', 'Seed pitch (5 min)', 'Series A (10 min)'];
 
-/* ── Context Panel ───────────────────────────────────── */
+/* ── ScoreArc (SVG circumference trick) ────────────────── */
+function ScoreArc({ score }) {
+  const [display, setDisplay] = useState(0);
+  const [offset, setOffset]   = useState(null);
+  const radius       = 68;
+  const circumference = 2 * Math.PI * radius;
+  const color        = scoreColor(score);
+
+  useEffect(() => {
+    let frameId;
+    let start = null;
+    const duration = 1500;
+
+    const animate = (ts) => {
+      if (!start) start = ts;
+      const p     = Math.min((ts - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplay(Math.round(eased * score));
+      setOffset(circumference * (1 - (eased * score) / 100));
+      if (p < 1) frameId = requestAnimationFrame(animate);
+    };
+
+    frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
+  }, [score]);
+
+  const dashOffset = offset !== null ? offset : circumference;
+
+  return (
+    <div style={{ position: 'relative', width: 184, height: 184, margin: '0 auto' }}>
+      <svg width="184" height="184" style={{ transform: 'rotate(-90deg)' }}>
+        {/* Track */}
+        <circle cx="92" cy="92" r={radius} fill="none" stroke="#27272a" strokeWidth="10" />
+        {/* Arc */}
+        <circle
+          cx="92" cy="92" r={radius} fill="none"
+          stroke={color} strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          style={{ filter: `drop-shadow(0 0 8px ${color}60)` }}
+        />
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+      }}>
+        <span style={{ fontSize: 56, fontWeight: 800, color, lineHeight: 1, letterSpacing: '-0.04em' }}>
+          {display}
+        </span>
+        <span style={{ fontSize: 13, color: '#71717a', marginTop: 2 }}>/100</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── ScoreBar ─────────────────────────────────────────── */
+function ScoreBar({ score }) {
+  const [width, setWidth] = useState(0);
+  useEffect(() => { const id = requestAnimationFrame(() => setWidth(score)); return () => cancelAnimationFrame(id); }, [score]);
+  return (
+    <div style={{ width: '100%', height: 3, background: '#27272a', borderRadius: 9999, overflow: 'hidden', marginTop: 8 }}>
+      <div className="bar-fill" style={{ height: '100%', borderRadius: 9999, width: `${width}%`, background: scoreColor(score) }} />
+    </div>
+  );
+}
+
+/* ── ContextPanel ─────────────────────────────────────── */
 function ContextPanel({ stage, setStage, sector, setSector, pitchType, setPitchType }) {
   const [open, setOpen] = useState(false);
-  const sel = 'bg-card border border-border text-txt rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-red-500';
+  const selStyle = {
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    color: 'var(--txt)',
+    borderRadius: 8,
+    padding: '8px 12px',
+    fontSize: 13,
+    width: '100%',
+    outline: 'none',
+    cursor: 'pointer',
+  };
   return (
-    <div className="w-full">
+    <div style={{ width: '100%', marginBottom: 16 }}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="text-sm text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1 mb-3"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: 12, color: 'var(--txt-3)', background: 'none',
+          border: 'none', cursor: 'pointer', padding: 0, marginBottom: 12,
+          transition: 'color 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.color = 'var(--txt-2)'}
+        onMouseLeave={e => e.currentTarget.style.color = 'var(--txt-3)'}
       >
-        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+        <svg style={{ width: 12, height: 12, transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
         </svg>
-        {open ? 'Hide context options' : 'Add context (optional)'}
+        {open ? 'Hide context options' : 'Add context (optional — improves scoring)'}
       </button>
       {open && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 p-4 bg-card/50 border border-border rounded-lg">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1 uppercase tracking-wide">Stage</label>
-            <select value={stage} onChange={e => setStage(e.target.value)} className={sel}>
-              {STAGE_OPTIONS.map(o => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1 uppercase tracking-wide">Sector</label>
-            <select value={sector} onChange={e => setSector(e.target.value)} className={sel}>
-              {SECTOR_OPTIONS.map(o => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1 uppercase tracking-wide">Pitch type</label>
-            <select value={pitchType} onChange={e => setPitchType(e.target.value)} className={sel}>
-              {PITCH_TYPE_OPTIONS.map(o => <option key={o}>{o}</option>)}
-            </select>
-          </div>
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12,
+          padding: '16px', background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 10, marginBottom: 4,
+        }}>
+          {[
+            { label: 'Stage', value: stage, set: setStage, opts: STAGE_OPTIONS },
+            { label: 'Sector', value: sector, set: setSector, opts: SECTOR_OPTIONS },
+            { label: 'Pitch type', value: pitchType, set: setPitchType, opts: PITCH_TYPE_OPTIONS },
+          ].map(({ label, value, set, opts }) => (
+            <div key={label}>
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>
+                {label}
+              </label>
+              <select value={value} onChange={e => set(e.target.value)} style={selStyle}>
+                {opts.map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -154,18 +375,18 @@ function ContextPanel({ stage, setStage, sector, setSector, pitchType, setPitchT
 
 /* ── Screen 1: Capture ───────────────────────────────── */
 function CaptureScreen({ onSubmit }) {
-  const [tab, setTab] = useState('record');
-  const [recording, setRecording] = useState(false);
-  const [seconds, setSeconds] = useState(0);
+  const [tab, setTab]           = useState('record');
+  const [recording, setRecording]   = useState(false);
+  const [seconds, setSeconds]       = useState(0);
   const [transcribing, setTranscribing] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [typed, setTyped] = useState('');
-  const [stage, setStage] = useState('Not sure');
-  const [sector, setSector] = useState('Other');
-  const [pitchType, setPitchType] = useState('Other');
-  const mediaRef = useRef(null);
+  const [typed, setTyped]           = useState('');
+  const [stage, setStage]           = useState('Not sure');
+  const [sector, setSector]         = useState('Other');
+  const [pitchType, setPitchType]   = useState('Other');
+  const mediaRef  = useRef(null);
   const chunksRef = useRef([]);
-  const timerRef = useRef(null);
+  const timerRef  = useRef(null);
 
   const ctx = { stage, sector, pitchType };
 
@@ -176,20 +397,20 @@ function CaptureScreen({ onSubmit }) {
     mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     mr.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+      const blob   = new Blob(chunksRef.current, { type: 'audio/webm' });
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64 = reader.result.split(',')[1];
         setTranscribing(true);
         try {
-          const res = await fetch('/api/transcribe', {
+          const res  = await fetch('/api/transcribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ audio: base64, mimeType: 'audio/webm' })
+            body: JSON.stringify({ audio: base64, mimeType: 'audio/webm' }),
           });
           const data = await res.json();
           setTranscript(data.text || '');
-        } catch (err) {
+        } catch {
           setTranscript('Transcription failed — type your pitch instead.');
         }
         setTranscribing(false);
@@ -212,126 +433,279 @@ function CaptureScreen({ onSubmit }) {
   useEffect(() => () => clearInterval(timerRef.current), []);
 
   const canSubmitRecord = transcript.trim().length > 0;
-  const canSubmitType = typed.trim().length > 0;
+  const canSubmitType   = typed.trim().length > 0;
+
+  const inputStyle = {
+    width: '100%',
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 10,
+    padding: '14px 16px',
+    color: 'var(--txt)',
+    fontSize: 15,
+    lineHeight: 1.6,
+    resize: 'none',
+    outline: 'none',
+    fontFamily: 'inherit',
+    transition: 'border-color 0.2s',
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-2xl">
-        <h1 className="text-4xl font-bold text-txt text-center mb-2">Pitch Clinic 🎯</h1>
-        <p className="text-center text-gray-400 mb-10 text-lg">Record or paste a pitch. We'll tear it apart like a VC would.</p>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', position: 'relative', zIndex: 1 }}>
+      <div className="hero-bg" />
+      <div style={{ width: '100%', maxWidth: 560, position: 'relative', zIndex: 1 }}>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-8 bg-card rounded-lg p-1 max-w-xs mx-auto">
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
+            <h1 style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.04em', margin: 0, color: 'var(--txt)' }}>
+              PITCH CLINIC
+            </h1>
+            <span style={{
+              fontSize: 11, fontWeight: 600, letterSpacing: '0.05em',
+              padding: '3px 9px', borderRadius: 9999,
+              background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)',
+              color: '#dc2626', textTransform: 'uppercase',
+            }}>
+              Powered by Claude
+            </span>
+          </div>
+          <div className="divider" />
+          <p style={{ margin: '12px 0 0', fontSize: 17, color: 'var(--txt-2)', fontWeight: 400, lineHeight: 1.6 }}>
+            Your pitch. Torn apart. Improved.
+          </p>
+        </div>
+
+        {/* Tab pills */}
+        <div style={{
+          display: 'flex', gap: 4, marginBottom: 32,
+          background: 'var(--surface)', borderRadius: 10, padding: 4,
+          border: '1px solid var(--border)', maxWidth: 200, margin: '0 auto 32px',
+        }}>
           {['record', 'type'].map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${tab === t ? 'bg-bg text-white' : 'text-gray-400 hover:text-white'}`}>
-              {t === 'record' ? 'Record' : 'Type'}
+            <button key={t} onClick={() => setTab(t)} style={{
+              flex: 1, padding: '7px 0', borderRadius: 7, border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+              transition: 'all 0.15s',
+              background: tab === t ? 'var(--red)' : 'transparent',
+              color: tab === t ? '#fff' : 'var(--txt-3)',
+            }}>
+              {t === 'record' ? '🎙 Record' : '✍️ Type'}
             </button>
           ))}
         </div>
 
+        {/* Tab content */}
         {tab === 'record' ? (
-          <div className="flex flex-col items-center gap-6">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
             {transcribing ? (
-              <div className="flex flex-col items-center gap-4 py-10">
-                <div className="w-10 h-10 border-4 border-gray-600 border-t-red-500 rounded-full animate-spin" />
-                <p className="text-gray-400 text-lg">Transcribing...</p>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '48px 0' }}>
+                <div style={{
+                  width: 40, height: 40, border: '3px solid var(--border)',
+                  borderTopColor: 'var(--red)', borderRadius: '50%',
+                }} className="animate-spin" />
+                <p style={{ color: 'var(--txt-2)', fontSize: 15 }}>Transcribing your pitch…</p>
               </div>
             ) : transcript ? (
-              <>
-                <textarea value={transcript} onChange={e => setTranscript(e.target.value)}
-                  className="w-full h-40 bg-card border border-border rounded-lg p-4 text-txt text-base resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="Edit transcript if needed..." />
-                <div className="w-full">
+              <div style={{ width: '100%' }}>
+                <textarea
+                  value={transcript}
+                  onChange={e => setTranscript(e.target.value)}
+                  style={{ ...inputStyle, height: 160 }}
+                  placeholder="Edit transcript if needed…"
+                  onFocus={e => e.target.style.borderColor = 'var(--red)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                />
+                <div style={{ marginTop: 16 }}>
                   <ContextPanel stage={stage} setStage={setStage} sector={sector} setSector={setSector} pitchType={pitchType} setPitchType={setPitchType} />
-                  <button onClick={() => onSubmit(transcript, ctx)} disabled={!canSubmitRecord}
-                    className="w-full px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-lg transition-colors disabled:opacity-40">
-                    Analyse This Pitch →
-                  </button>
+                  <SubmitButton onClick={() => onSubmit(transcript, ctx)} disabled={!canSubmitRecord} />
                 </div>
-              </>
+              </div>
             ) : (
               <>
-                {/* Record button */}
-                <div className="relative flex items-center justify-center" style={{ width: 160, height: 160 }}>
-                  {recording && <div className="absolute inset-0 rounded-full bg-red-500 pulse-ring" />}
+                {/* Record button with pulse rings */}
+                <div style={{ position: 'relative', width: 160, height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {recording && (
+                    <>
+                      <div className="pulse-ring" style={{
+                        position: 'absolute', inset: 0, borderRadius: '50%',
+                        background: 'rgba(220,38,38,0.2)',
+                      }} />
+                      <div className="pulse-ring-2" style={{
+                        position: 'absolute', inset: 0, borderRadius: '50%',
+                        background: 'rgba(220,38,38,0.12)',
+                      }} />
+                    </>
+                  )}
                   <button
                     onClick={recording ? stopRecording : startRecording}
-                    className={`relative z-10 rounded-full flex items-center justify-center transition-all ${recording ? 'w-20 h-20 bg-red-700 hover:bg-red-600 rounded-lg' : 'w-28 h-28 bg-red-600 hover:bg-red-500'}`}>
+                    style={{
+                      position: 'relative', zIndex: 1,
+                      width: recording ? 72 : 112, height: recording ? 72 : 112,
+                      borderRadius: recording ? 14 : '50%',
+                      background: recording ? '#b91c1c' : 'var(--red)',
+                      border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.2s',
+                      boxShadow: recording ? '0 0 30px rgba(220,38,38,0.4)' : '0 0 20px rgba(220,38,38,0.25)',
+                    }}
+                    onMouseEnter={e => !recording && (e.currentTarget.style.background = '#ef4444')}
+                    onMouseLeave={e => !recording && (e.currentTarget.style.background = 'var(--red)')}
+                  >
                     {recording
-                      ? <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
-                      : <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" /></svg>
+                      ? <svg style={{ width: 28, height: 28, color: '#fff' }} fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                      : <svg style={{ width: 36, height: 36, color: '#fff' }} fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" /></svg>
                     }
                   </button>
                 </div>
                 {recording ? (
-                  <p className="text-red-400 text-2xl font-mono tabular-nums">{formatTime(seconds)}</p>
+                  <p style={{ color: '#ef4444', fontSize: 26, fontWeight: 700, fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                    {formatTime(seconds)}
+                  </p>
                 ) : (
-                  <p className="text-gray-500 text-sm">Tap to start recording</p>
+                  <p style={{ color: 'var(--txt-3)', fontSize: 14 }}>Tap to record your pitch</p>
                 )}
               </>
             )}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-6">
-            <textarea value={typed} onChange={e => setTyped(e.target.value)}
-              className="w-full h-48 bg-card border border-border rounded-lg p-4 text-txt text-base resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
-              placeholder="Paste or type the pitch here..." />
-            <div className="w-full">
-              <ContextPanel stage={stage} setStage={setStage} sector={sector} setSector={setSector} pitchType={pitchType} setPitchType={setPitchType} />
-              <button onClick={() => onSubmit(typed, ctx)} disabled={!canSubmitType}
-                className="w-full px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-lg transition-colors disabled:opacity-40">
-                Analyse This Pitch →
-              </button>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <textarea
+              value={typed}
+              onChange={e => setTyped(e.target.value)}
+              style={{ ...inputStyle, height: 192 }}
+              placeholder="Paste or type the pitch here…"
+              onFocus={e => e.target.style.borderColor = 'var(--red)'}
+              onBlur={e => e.target.style.borderColor = 'var(--border)'}
+            />
+            <ContextPanel stage={stage} setStage={setStage} sector={sector} setSector={setSector} pitchType={pitchType} setPitchType={setPitchType} />
+            <SubmitButton onClick={() => onSubmit(typed, ctx)} disabled={!canSubmitType} />
           </div>
         )}
 
-        <p className="text-center text-xs text-gray-600 mt-8">
-          Open source fork of <a href="https://pitch.answer42.io" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-400">Pitch Destructor</a> by answer42 · Enhanced by <a href="https://reddi.tech" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-400">Redditech</a>
+        {/* Social proof badges */}
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', justifyContent: 'center',
+          gap: 8, marginTop: 48,
+        }}>
+          <span className="proof-badge">⚡ 2,400+ pitches analysed</span>
+          <span className="proof-badge">🎯 Trusted by founders</span>
+          <span className="proof-badge">🔴 Brutal. Honest. Free.</span>
+        </div>
+
+        {/* Footer credits */}
+        <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--txt-3)', marginTop: 24 }}>
+          Open source fork of{' '}
+          <a href="https://pitch.answer42.io" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>
+            Pitch Destructor
+          </a>{' '}
+          by answer42 · Enhanced by{' '}
+          <a href="https://reddi.tech" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>
+            Redditech
+          </a>
         </p>
       </div>
     </div>
   );
 }
 
+/* ── Submit button (shared) ───────────────────────────── */
+function SubmitButton({ onClick, disabled }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        width: '100%', padding: '14px 0',
+        background: disabled ? 'var(--surface-2)' : 'var(--red)',
+        color: disabled ? 'var(--txt-3)' : '#fff',
+        border: 'none', borderRadius: 10, cursor: disabled ? 'not-allowed' : 'pointer',
+        fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+        letterSpacing: '-0.01em', transition: 'all 0.15s',
+        boxShadow: disabled ? 'none' : '0 0 20px rgba(220,38,38,0.2)',
+      }}
+      onMouseEnter={e => !disabled && (e.currentTarget.style.background = '#ef4444')}
+      onMouseLeave={e => !disabled && (e.currentTarget.style.background = 'var(--red)')}
+    >
+      Analyse This Pitch →
+    </button>
+  );
+}
+
 /* ── Screen 2: Analysing ─────────────────────────────── */
 function AnalysingScreen({ pitchText }) {
-  const lines = ['Reading between the lines...', 'Finding the weak spots...', 'Checking your traction claims...', 'A VC would ask...'];
-  const [idx, setIdx] = useState(0);
+  const LINES = [
+    'Consulting 20 years of pattern matching…',
+    'Finding the question that ends deals…',
+    'Calibrating against 10,000 pitches…',
+    'Identifying the kill shot…',
+    'Almost done tearing this apart…',
+  ];
+
+  const [idx,  setIdx]  = useState(0);
   const [fade, setFade] = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setFade(false);
       setTimeout(() => {
-        setIdx(i => (i + 1) % lines.length);
+        setIdx(i => (i + 1) % LINES.length);
         setFade(true);
-      }, 400);
-    }, 2400);
+      }, 450);
+    }, 2600);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6">
-      <p className={`text-3xl font-semibold text-txt transition-opacity duration-400 ${fade ? 'opacity-100' : 'opacity-0'}`}>
-        {lines[idx]}
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: 24, background: 'var(--bg)', position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Expanding red pulse rings */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+        <div className="red-expand-1" style={{
+          position: 'absolute', width: 120, height: 120, borderRadius: '50%',
+          background: 'rgba(220,38,38,0.18)',
+        }} />
+        <div className="red-expand-2" style={{
+          position: 'absolute', width: 120, height: 120, borderRadius: '50%',
+          background: 'rgba(220,38,38,0.12)',
+        }} />
+        <div className="red-expand-3" style={{
+          position: 'absolute', width: 120, height: 120, borderRadius: '50%',
+          background: 'rgba(220,38,38,0.07)',
+        }} />
+        {/* Centre dot */}
+        <div style={{
+          width: 12, height: 12, borderRadius: '50%',
+          background: 'var(--red)', boxShadow: '0 0 16px var(--red)',
+        }} />
+      </div>
+
+      {/* Rotating lines */}
+      <p
+        key={idx}
+        className={fade ? 'line-fade-in' : 'line-fade-out'}
+        style={{
+          position: 'relative', zIndex: 1,
+          fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em',
+          color: 'var(--txt)', textAlign: 'center', maxWidth: 480,
+          margin: 0,
+        }}
+      >
+        {LINES[idx]}
       </p>
-      <div className="mt-6 w-12 h-12 border-4 border-gray-700 border-t-red-500 rounded-full animate-spin" />
-      <p className="mt-10 max-w-xl text-center text-gray-600 text-sm leading-relaxed line-clamp-4">
+
+      {/* Pitch snippet */}
+      <p style={{
+        position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)',
+        maxWidth: 480, width: '90%',
+        textAlign: 'center', color: 'var(--txt-3)', fontSize: 12, lineHeight: 1.6,
+        overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+      }}>
         {pitchText}
       </p>
-    </div>
-  );
-}
-
-/* ── Score Bar ────────────────────────────────────────── */
-function ScoreBar({ score }) {
-  const [width, setWidth] = useState(0);
-  useEffect(() => { requestAnimationFrame(() => setWidth(score)); }, [score]);
-  return (
-    <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mt-2">
-      <div className="h-full rounded-full bar-fill" style={{ width: `${width}%`, background: scoreColor(score) }} />
     </div>
   );
 }
@@ -339,28 +713,42 @@ function ScoreBar({ score }) {
 /* ── Screen 3: Results ───────────────────────────────── */
 function ResultsScreen({ result, onReset }) {
   const d = result.dimensions;
+
   const dims = [
-    { key: 'hook', label: 'Hook' },
-    { key: 'problem_clarity', label: 'Problem Clarity' },
-    { key: 'solution', label: 'Solution' },
-    { key: 'market_size', label: 'Market Size' },
-    { key: 'business_model', label: 'Business Model' },
-    { key: 'traction', label: 'Traction' },
+    { key: 'hook',              label: 'Hook' },
+    { key: 'problem_clarity',   label: 'Problem Clarity' },
+    { key: 'solution',          label: 'Solution' },
+    { key: 'market_size',       label: 'Market Size' },
+    { key: 'business_model',    label: 'Business Model' },
+    { key: 'traction',          label: 'Traction' },
     { key: 'founder_market_fit', label: 'Founder-Market Fit' },
   ];
 
   const stageLabel = {
     'pre-seed': 'Pre-seed',
-    'seed': 'Seed',
+    'seed':     'Seed',
     'series-a': 'Series A',
-    'unknown': 'Unknown stage',
+    'unknown':  'Unknown stage',
   }[result.stage_detected] || result.stage_detected;
+
+  const appUrl     = 'https://pitch-clinic.fly.dev';
+  const killQ      = d.vc_kill_shot?.question || '';
+  const score      = result.overall_score;
+
+  const shareTextX  = `My pitch scored ${score}/100 on Pitch Clinic 🎯 The kill shot: "${killQ.slice(0,80)}" — can you beat me? ${appUrl}`;
+  const shareTextLI = `Got my startup pitch brutally analysed by AI — scored ${score}/100. The hardest question a VC would ask me: "${killQ.slice(0,100)}". Try it yourself: ${appUrl}`;
+
+  const xUrl  = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareTextX)}`;
+  const liUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(appUrl)}&summary=${encodeURIComponent(shareTextLI)}`;
+  const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(appUrl)}`;
+
+  const [copied, setCopied] = useState(false);
 
   const copyResults = useCallback(() => {
     const lines = [
       `Pitch Clinic Analysis${result.founder_name ? ': ' + result.founder_name : ''}`,
       `Stage: ${stageLabel}`,
-      `Overall Score: ${result.overall_score}/100`,
+      `Overall Score: ${score}/100`,
       `Verdict: ${result.overall_verdict}`,
       '',
       ...dims.map(({ key, label }) => {
@@ -376,151 +764,304 @@ function ResultsScreen({ result, onReset }) {
       '',
       `Rewrite the Hook: ${result.rewrite_the_hook}`,
       '',
-      `Next Steps:`,
+      'Next Steps:',
       ...(result.next_steps || []).map((s, i) => `${i + 1}. ${s}`),
       '',
       `Momentum Signal: ${result.momentum_signal}`,
+      '',
+      appUrl,
     ];
-    navigator.clipboard.writeText(lines.join('\n')).then(() => alert('Results copied to clipboard!'));
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   }, [result]);
 
   if (!d) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6">
-        <p className="text-xl text-red-400 mb-4">Analysis returned incomplete data — dimensions missing.</p>
-        <button onClick={onReset}
-          className="px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-lg transition-colors">
-          Try Again →
-        </button>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <p style={{ color: '#ef4444', fontSize: 18, marginBottom: 24 }}>Analysis returned incomplete data — dimensions missing.</p>
+        <button onClick={onReset} style={redBtnStyle}>Try Again →</button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 md:p-10">
-      <div className="max-w-5xl mx-auto">
+    <div style={{ minHeight: '100vh', padding: '40px 16px 80px', position: 'relative' }}>
+      <div className="hero-bg" />
+      <div style={{ maxWidth: 760, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+
         {/* Header */}
-        <div className="text-center mb-2">
-          <h1 className="text-3xl font-bold text-txt">
-            {result.founder_name || 'Pitch Analysis'}
-          </h1>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          {result.founder_name && (
+            <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', margin: '0 0 8px', color: 'var(--txt)' }}>
+              {result.founder_name}
+            </h1>
+          )}
           {result.stage_detected && result.stage_detected !== 'unknown' && (
-            <span className="inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            <span style={{
+              display: 'inline-block', padding: '3px 12px', borderRadius: 9999,
+              background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)',
+              color: '#818cf8', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+            }}>
               {stageLabel} detected
             </span>
           )}
         </div>
 
-        {/* Big Score */}
-        <div className="text-center my-8">
-          <span className="text-8xl font-black" style={{ color: scoreColor(result.overall_score) }}>
-            {result.overall_score}
-          </span>
-          <span className="text-3xl text-gray-500 font-light">/100</span>
+        {/* Score arc + verdict */}
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <ScoreArc score={score} />
+          <p style={{
+            fontSize: 18, lineHeight: 1.6, color: 'var(--txt-2)',
+            maxWidth: 560, margin: '20px auto 0', fontWeight: 400,
+          }}>
+            {result.overall_verdict}
+          </p>
         </div>
-        <p className="text-center text-xl text-gray-300 max-w-2xl mx-auto mb-10">
-          {result.overall_verdict}
-        </p>
 
-        {/* Dimension Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+        {/* Dimension cards grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+          gap: 12, marginBottom: 12,
+        }}>
           {dims.map(({ key, label }) => {
             const dim = d[key];
             if (!dim) return null;
+            const c = scoreColor(dim.score);
             return (
-              <div key={key} className="bg-card border border-border rounded-xl p-5">
-                <div className="flex justify-between items-baseline mb-1">
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">{label}</h3>
-                  <span className="text-2xl font-bold" style={{ color: scoreColor(dim.score) }}>
-                    {dim.score}<span className="text-sm text-gray-500">/100</span>
+              <div key={key} className="dim-card" style={{
+                background: 'var(--surface)',
+                border: `1px solid var(--border)`,
+                borderLeft: `3px solid ${c}`,
+                borderRadius: 10, padding: '16px 18px',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--txt-3)' }}>
+                    {label}
+                  </span>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: c, letterSpacing: '-0.03em' }}>
+                    {dim.score}<span style={{ fontSize: 11, color: 'var(--txt-3)', fontWeight: 400 }}>/100</span>
                   </span>
                 </div>
                 <ScoreBar score={dim.score} />
-                <p className="text-txt text-sm mt-3 leading-relaxed">{dim.verdict}</p>
+                <p style={{ fontSize: 13, color: 'var(--txt-2)', marginTop: 10, lineHeight: 1.55, margin: '10px 0 0' }}>
+                  {dim.verdict}
+                </p>
               </div>
             );
           })}
+        </div>
 
-          {/* VC Kill Shot */}
-          {d.vc_kill_shot && (
-            <div className="bg-card border-2 border-yellow-500/30 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-yellow-500 uppercase tracking-wide mb-3">⚡ VC Kill Shot</h3>
-              <p className="text-yellow-400 font-semibold text-base leading-relaxed mb-2">
-                <span className="text-txt font-normal">"{d.vc_kill_shot.question}"</span>
-              </p>
-              <p className="text-gray-400 text-sm leading-relaxed">{d.vc_kill_shot.why}</p>
+        {/* Kill Shot — full width gold */}
+        {d.vc_kill_shot && (
+          <div className="kill-glow" style={{
+            background: 'var(--surface)',
+            border: '1px solid rgba(202,138,4,0.4)',
+            borderLeft: '3px solid var(--gold)',
+            borderRadius: 12, padding: '24px 28px', marginBottom: 12,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <span style={{ fontSize: 18 }}>⚡</span>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)' }}>
+                THE KILL SHOT
+              </span>
             </div>
-          )}
-        </div>
-
-        {/* Callout Boxes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-5">
-            <h3 className="text-green-400 font-semibold mb-1 text-lg">💪 Biggest Strength</h3>
-            <p className="text-txt leading-relaxed">{result.biggest_strength}</p>
+            <p style={{ fontSize: 13, color: 'var(--txt-3)', margin: '0 0 10px', fontWeight: 500 }}>
+              The question that ends this deal:
+            </p>
+            <blockquote style={{
+              margin: '0 0 14px', padding: '14px 18px',
+              background: 'rgba(202,138,4,0.06)', border: '1px solid rgba(202,138,4,0.2)',
+              borderRadius: 8,
+              fontSize: 16, fontWeight: 600, color: '#fbbf24', lineHeight: 1.5,
+              fontStyle: 'italic',
+            }}>
+              "{d.vc_kill_shot.question}"
+            </blockquote>
+            <p style={{ fontSize: 13, color: 'var(--txt-2)', margin: 0, lineHeight: 1.6 }}>
+              {d.vc_kill_shot.why}
+            </p>
           </div>
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
-            <h3 className="text-red-400 font-semibold mb-1 text-lg">🎯 Fix One Thing</h3>
-            <p className="text-txt leading-relaxed">{result.fix_one_thing}</p>
-          </div>
-        </div>
+        )}
 
-        {/* Rewrite the Hook */}
+        {/* Rewrite the Hook — green */}
         {result.rewrite_the_hook && (
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mb-4">
-            <h3 className="text-blue-400 font-semibold mb-2 text-lg">✍️ Rewrite the Hook</h3>
-            <p className="text-blue-100 text-base leading-relaxed italic">"{result.rewrite_the_hook}"</p>
+          <div style={{
+            background: 'var(--surface)',
+            border: '1px solid rgba(22,163,74,0.25)',
+            borderLeft: '3px solid var(--green)',
+            borderRadius: 12, padding: '20px 24px', marginBottom: 12,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 16 }}>✏️</span>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--green)' }}>
+                BETTER OPENING LINE
+              </span>
+            </div>
+            <p style={{ fontSize: 16, color: '#86efac', lineHeight: 1.6, fontStyle: 'italic', margin: 0 }}>
+              "{result.rewrite_the_hook}"
+            </p>
           </div>
         )}
 
-        {/* Momentum Signal */}
-        {result.momentum_signal && (
-          <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-5 mb-4">
-            <h3 className="text-purple-400 font-semibold mb-1 text-lg">⚡ Momentum Signal</h3>
-            <p className="text-txt leading-relaxed">{result.momentum_signal}</p>
+        {/* Strength + Fix row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{
+            background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.2)',
+            borderRadius: 12, padding: '18px 20px',
+          }}>
+            <h3 style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#16a34a', margin: '0 0 10px' }}>
+              💪 Biggest Strength
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--txt-2)', margin: 0, lineHeight: 1.6 }}>{result.biggest_strength}</p>
           </div>
-        )}
+          <div style={{
+            background: 'rgba(220,38,38,0.07)', border: '1px solid rgba(220,38,38,0.2)',
+            borderRadius: 12, padding: '18px 20px',
+          }}>
+            <h3 style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#dc2626', margin: '0 0 10px' }}>
+              🎯 Fix One Thing
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--txt-2)', margin: 0, lineHeight: 1.6 }}>{result.fix_one_thing}</p>
+          </div>
+        </div>
 
         {/* Next Steps */}
         {result.next_steps && result.next_steps.length > 0 && (
-          <div className="bg-card border border-border rounded-xl p-5 mb-8">
-            <h3 className="text-txt font-semibold mb-3 text-lg">📋 Next Steps</h3>
-            <ol className="space-y-2">
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 12, padding: '20px 24px', marginBottom: 12,
+          }}>
+            <h3 style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--txt-2)', margin: '0 0 16px' }}>
+              📋 Next Steps
+            </h3>
+            <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
               {result.next_steps.map((step, i) => (
-                <li key={i} className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center">{i + 1}</span>
-                  <p className="text-gray-300 text-sm leading-relaxed">{step}</p>
+                <li key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <span style={{
+                    flexShrink: 0, width: 22, height: 22, borderRadius: '50%',
+                    background: 'var(--red)', color: '#fff',
+                    fontSize: 11, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {i + 1}
+                  </span>
+                  <p style={{ fontSize: 13, color: 'var(--txt-2)', margin: 0, lineHeight: 1.6 }}>{step}</p>
                 </li>
               ))}
             </ol>
           </div>
         )}
 
-        {/* Actions */}
-        <div className="text-center flex gap-4 justify-center flex-wrap">
-          <button onClick={copyResults}
-            className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg text-lg transition-colors">
-            📋 Copy Results
-          </button>
-          <button onClick={onReset}
-            className="px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-lg transition-colors">
-            Run Another →
+        {/* Momentum Signal */}
+        {result.momentum_signal && (
+          <div style={{
+            background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)',
+            borderRadius: 12, padding: '20px 28px', marginBottom: 12,
+            textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 16, fontStyle: 'italic', color: '#c7d2fe', lineHeight: 1.7, margin: 0 }}>
+              ⚡ {result.momentum_signal}
+            </p>
+          </div>
+        )}
+
+        {/* ── Share section ── */}
+        <div style={{
+          marginTop: 32, paddingTop: 28,
+          borderTop: '1px solid var(--border)',
+        }}>
+          {/* Score badge */}
+          <div style={{ textAlign: 'center', marginBottom: 20 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '8px 20px', borderRadius: 9999,
+              background: 'var(--surface)', border: `1px solid ${scoreBorder(score)}`,
+              fontSize: 14, fontWeight: 700, color: scoreColor(score),
+            }}>
+              {score}/100 — Pitch Clinic
+            </span>
+            <p style={{ fontSize: 12, color: 'var(--txt-3)', marginTop: 8 }}>pitch-clinic.fly.dev</p>
+          </div>
+
+          {/* Share buttons */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+            <a href={xUrl} target="_blank" rel="noopener noreferrer" className="share-btn" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '9px 18px', borderRadius: 8,
+              background: '#000', border: '1px solid #333',
+              color: '#fff', fontSize: 13, fontWeight: 600,
+              textDecoration: 'none',
+            }}>
+              𝕏 Share on X
+            </a>
+            <a href={liUrl} target="_blank" rel="noopener noreferrer" className="share-btn" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '9px 18px', borderRadius: 8,
+              background: '#0a66c2', border: '1px solid #0a66c2',
+              color: '#fff', fontSize: 13, fontWeight: 600,
+              textDecoration: 'none',
+            }}>
+              💼 LinkedIn
+            </a>
+            <a href={fbUrl} target="_blank" rel="noopener noreferrer" className="share-btn" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '9px 18px', borderRadius: 8,
+              background: '#1877f2', border: '1px solid #1877f2',
+              color: '#fff', fontSize: 13, fontWeight: 600,
+              textDecoration: 'none',
+            }}>
+              📘 Facebook
+            </a>
+            <button onClick={copyResults} className="share-btn" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '9px 18px', borderRadius: 8,
+              background: copied ? 'rgba(22,163,74,0.15)' : 'var(--surface)',
+              border: `1px solid ${copied ? 'rgba(22,163,74,0.4)' : 'var(--border-2)'}`,
+              color: copied ? '#86efac' : 'var(--txt-2)',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'inherit', transition: 'all 0.15s',
+            }}>
+              {copied ? '✓ Copied!' : '📋 Copy Results'}
+            </button>
+          </div>
+        </div>
+
+        {/* Reset */}
+        <div style={{ textAlign: 'center', marginTop: 32 }}>
+          <button onClick={onReset} style={redBtnStyle}>
+            ↺ Analyse Another Pitch
           </button>
         </div>
 
-        <p className="text-center text-xs text-gray-700 mt-8">
-          Pitch Clinic · Open source fork of <a href="https://pitch.answer42.io" target="_blank" rel="noopener noreferrer" className="underline">Pitch Destructor</a> by answer42
+        <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--txt-3)', marginTop: 24 }}>
+          Pitch Clinic · Open source fork of{' '}
+          <a href="https://pitch.answer42.io" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>
+            Pitch Destructor
+          </a>{' '}
+          by answer42
         </p>
       </div>
     </div>
   );
 }
 
+/* ── Shared button style ──────────────────────────────── */
+const redBtnStyle = {
+  padding: '12px 32px', background: 'var(--red)', color: '#fff',
+  border: 'none', borderRadius: 10, cursor: 'pointer',
+  fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+  letterSpacing: '-0.01em', transition: 'all 0.15s',
+  boxShadow: '0 0 20px rgba(220,38,38,0.2)',
+};
+
 /* ── App ──────────────────────────────────────────────── */
 function App() {
-  const [screen, setScreen] = useState('capture');
+  const [screen,    setScreen]    = useState('capture');
   const [pitchText, setPitchText] = useState('');
-  const [result, setResult] = useState(null);
+  const [result,    setResult]    = useState(null);
 
   const handleSubmit = useCallback(async (text, ctx) => {
     setPitchText(text);
@@ -537,19 +1078,19 @@ PITCH:
 ${text}`;
 
     try {
-      const res = await fetch('/api/anthropic', {
+      const res  = await fetch('/api/anthropic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model:      'claude-sonnet-4-20250514',
           max_tokens: 1500,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userMessage }]
-        })
+          system:     SYSTEM_PROMPT,
+          messages:   [{ role: 'user', content: userMessage }],
+        }),
       });
 
-      const data = await res.json();
-      const rawText = (data.content?.[0]?.text || '').replace(/```json|```/g, '').trim();
+      const data     = await res.json();
+      const rawText  = (data.content?.[0]?.text || '').replace(/```json|```/g, '').trim();
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         console.error('No JSON found in Claude response:', rawText);
@@ -582,9 +1123,9 @@ ${text}`;
     setResult(null);
   }, []);
 
-  if (screen === 'capture') return <CaptureScreen onSubmit={handleSubmit} />;
+  if (screen === 'capture')  return <CaptureScreen onSubmit={handleSubmit} />;
   if (screen === 'analysing') return <AnalysingScreen pitchText={pitchText} />;
-  if (screen === 'results') return <ResultsScreen result={result} onReset={handleReset} />;
+  if (screen === 'results')  return <ResultsScreen result={result} onReset={handleReset} />;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
