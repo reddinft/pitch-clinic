@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pitch Clinic</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        bg: '#0f172a',
+        card: '#1e293b',
+        border: '#334155',
+        txt: '#e2e8f0',
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { background: #0f172a; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+  @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.5); opacity: 0; } }
+  .pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
+  .bar-fill { transition: width 1s ease-out; }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; appearance: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
+
+/* ── System prompt ────────────────────────────────────── */
+const SYSTEM_PROMPT = `You are a brutally honest startup pitch analyst. You have seen thousands of pitches across pre-seed, seed, and Series A. You call out weak spots precisely — not to be cruel, but because founders need the truth to improve.
+
+SCORING CALIBRATION (use the full 0–100 range):
+- 90–100: Exceptional. Best ~1% you hear. Clear problem, proven traction, obvious market, right founder. Rare.
+- 70–89: Good. One or two material gaps, but core is solid. Worth another conversation.
+- 50–69: Average. Something important is missing or muddled.
+- 30–49: Significant problems. Multiple gaps. Most investors would not continue.
+- 10–29: Not ready. Unclear problem, no traction, or founder-market fit absent.
+
+SCORING DIMENSIONS (score each 0–100):
+1. hook — Did the opening grab attention in the first 15 seconds?
+2. problem_clarity — Is the problem specific, real, and painful?
+3. solution — Is the solution clearly differentiated and believable?
+4. market_size — Is the market opportunity articulated? Is TAM/SAM credible?
+5. business_model — Is it clear how money is made? Is the model defensible?
+6. traction — Evidence of real-world validation (users, revenue, LOIs, growth)?
+7. founder_market_fit — Does this founder have an unfair advantage to solve this?
+
+HARD RULES (never violate these):
+- Weight problem_clarity and traction 2x other dimensions in the overall_score
+- If traction is not mentioned at all → traction score must be below 30
+- If the problem is not clearly articulated in the first 15 seconds → hook score must be below 40
+- If no founder background or relevant experience is mentioned → founder_market_fit must be below 35
+- If market size/TAM is never mentioned → market_size score must be below 35
+- If business model is not explained → business_model score must be below 40
+- The vc_kill_shot MUST reference a specific claim or gap from THIS pitch — generic questions like "what's your moat?" or "how will you acquire customers?" are FORBIDDEN unless the pitch used those exact words
+- Never assume information not provided in the pitch
+- Verdicts must be precise and direct. Name the specific claim that is weak. Not a general character judgment.
+
+CONTEXT (use if provided):
+- Stage: adjusts the traction bar (pre-seed = idea-stage traction ok; Series A = revenue required)
+- Sector: adjusts market size expectations (consumer = must be huge; niche B2B = smaller ok)
+- Pitch type: adjusts hook expectations (elevator = 60 sec, seed = 5 min, series = 10 min)
+
+Return ONLY valid JSON. No markdown, no preamble, no explanation. Exact schema:
+{
+  "founder_name": null,
+  "stage_detected": "pre-seed",
+  "overall_score": 0,
+  "overall_verdict": "string",
+  "dimensions": {
+    "hook": { "score": 0, "verdict": "string" },
+    "problem_clarity": { "score": 0, "verdict": "string" },
+    "solution": { "score": 0, "verdict": "string" },
+    "market_size": { "score": 0, "verdict": "string" },
+    "business_model": { "score": 0, "verdict": "string" },
+    "traction": { "score": 0, "verdict": "string" },
+    "founder_market_fit": { "score": 0, "verdict": "string" },
+    "vc_kill_shot": { "question": "string", "why": "string" }
+  },
+  "biggest_strength": "string",
+  "fix_one_thing": "string",
+  "rewrite_the_hook": "string",
+  "next_steps": ["string", "string", "string"],
+  "momentum_signal": "string"
+}`;
+
+/* ── Helpers ─────────────────────────────────────────── */
+function scoreColor(s) {
+  if (s >= 80) return '#22c55e';
+  if (s >= 60) return '#f59e0b';
+  return '#ef4444';
+}
+
+function formatTime(sec) {
+  const m = String(Math.floor(sec / 60)).padStart(2, '0');
+  const s2 = String(sec % 60).padStart(2, '0');
+  return `${m}:${s2}`;
+}
+
+const STAGE_OPTIONS = ['Not sure', 'Pre-seed', 'Seed', 'Series A'];
+const SECTOR_OPTIONS = ['Other', 'B2B SaaS', 'Consumer', 'Deep Tech', 'Marketplace', 'Hardware'];
+const PITCH_TYPE_OPTIONS = ['Other', 'Elevator (60s)', 'Seed pitch (5 min)', 'Series A (10 min)'];
+
+/* ── Context Panel ───────────────────────────────────── */
+function ContextPanel({ stage, setStage, sector, setSector, pitchType, setPitchType }) {
+  const [open, setOpen] = useState(false);
+  const sel = 'bg-card border border-border text-txt rounded-md px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-red-500';
+  return (
+    <div className="w-full">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="text-sm text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1 mb-3"
+      >
+        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+        </svg>
+        {open ? 'Hide context options' : 'Add context (optional)'}
+      </button>
+      {open && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 p-4 bg-card/50 border border-border rounded-lg">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 uppercase tracking-wide">Stage</label>
+            <select value={stage} onChange={e => setStage(e.target.value)} className={sel}>
+              {STAGE_OPTIONS.map(o => <option key={o}>{o}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 uppercase tracking-wide">Sector</label>
+            <select value={sector} onChange={e => setSector(e.target.value)} className={sel}>
+              {SECTOR_OPTIONS.map(o => <option key={o}>{o}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1 uppercase tracking-wide">Pitch type</label>
+            <select value={pitchType} onChange={e => setPitchType(e.target.value)} className={sel}>
+              {PITCH_TYPE_OPTIONS.map(o => <option key={o}>{o}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Screen 1: Capture ───────────────────────────────── */
+function CaptureScreen({ onSubmit }) {
+  const [tab, setTab] = useState('record');
+  const [recording, setRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [typed, setTyped] = useState('');
+  const [stage, setStage] = useState('Not sure');
+  const [sector, setSector] = useState('Other');
+  const [pitchType, setPitchType] = useState('Other');
+  const mediaRef = useRef(null);
+  const chunksRef = useRef([]);
+  const timerRef = useRef(null);
+
+  const ctx = { stage, sector, pitchType };
+
+  const startRecording = useCallback(async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    chunksRef.current = [];
+    mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    mr.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result.split(',')[1];
+        setTranscribing(true);
+        try {
+          const res = await fetch('/api/transcribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audio: base64, mimeType: 'audio/webm' })
+          });
+          const data = await res.json();
+          setTranscript(data.text || '');
+        } catch (err) {
+          setTranscript('Transcription failed — type your pitch instead.');
+        }
+        setTranscribing(false);
+      };
+      reader.readAsDataURL(blob);
+    };
+    mediaRef.current = mr;
+    mr.start();
+    setRecording(true);
+    setSeconds(0);
+    timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    clearInterval(timerRef.current);
+    mediaRef.current?.stop();
+    setRecording(false);
+  }, []);
+
+  useEffect(() => () => clearInterval(timerRef.current), []);
+
+  const canSubmitRecord = transcript.trim().length > 0;
+  const canSubmitType = typed.trim().length > 0;
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-2xl">
+        <h1 className="text-4xl font-bold text-txt text-center mb-2">Pitch Clinic 🎯</h1>
+        <p className="text-center text-gray-400 mb-10 text-lg">Record or paste a pitch. We'll tear it apart like a VC would.</p>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-8 bg-card rounded-lg p-1 max-w-xs mx-auto">
+          {['record', 'type'].map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${tab === t ? 'bg-bg text-white' : 'text-gray-400 hover:text-white'}`}>
+              {t === 'record' ? 'Record' : 'Type'}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'record' ? (
+          <div className="flex flex-col items-center gap-6">
+            {transcribing ? (
+              <div className="flex flex-col items-center gap-4 py-10">
+                <div className="w-10 h-10 border-4 border-gray-600 border-t-red-500 rounded-full animate-spin" />
+                <p className="text-gray-400 text-lg">Transcribing...</p>
+              </div>
+            ) : transcript ? (
+              <>
+                <textarea value={transcript} onChange={e => setTranscript(e.target.value)}
+                  className="w-full h-40 bg-card border border-border rounded-lg p-4 text-txt text-base resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Edit transcript if needed..." />
+                <div className="w-full">
+                  <ContextPanel stage={stage} setStage={setStage} sector={sector} setSector={setSector} pitchType={pitchType} setPitchType={setPitchType} />
+                  <button onClick={() => onSubmit(transcript, ctx)} disabled={!canSubmitRecord}
+                    className="w-full px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-lg transition-colors disabled:opacity-40">
+                    Analyse This Pitch →
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Record button */}
+                <div className="relative flex items-center justify-center" style={{ width: 160, height: 160 }}>
+                  {recording && <div className="absolute inset-0 rounded-full bg-red-500 pulse-ring" />}
+                  <button
+                    onClick={recording ? stopRecording : startRecording}
+                    className={`relative z-10 rounded-full flex items-center justify-center transition-all ${recording ? 'w-20 h-20 bg-red-700 hover:bg-red-600 rounded-lg' : 'w-28 h-28 bg-red-600 hover:bg-red-500'}`}>
+                    {recording
+                      ? <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                      : <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" /></svg>
+                    }
+                  </button>
+                </div>
+                {recording ? (
+                  <p className="text-red-400 text-2xl font-mono tabular-nums">{formatTime(seconds)}</p>
+                ) : (
+                  <p className="text-gray-500 text-sm">Tap to start recording</p>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-6">
+            <textarea value={typed} onChange={e => setTyped(e.target.value)}
+              className="w-full h-48 bg-card border border-border rounded-lg p-4 text-txt text-base resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Paste or type the pitch here..." />
+            <div className="w-full">
+              <ContextPanel stage={stage} setStage={setStage} sector={sector} setSector={setSector} pitchType={pitchType} setPitchType={setPitchType} />
+              <button onClick={() => onSubmit(typed, ctx)} disabled={!canSubmitType}
+                className="w-full px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-lg transition-colors disabled:opacity-40">
+                Analyse This Pitch →
+              </button>
+            </div>
+          </div>
+        )}
+
+        <p className="text-center text-xs text-gray-600 mt-8">
+          Open source fork of <a href="https://pitch.answer42.io" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-400">Pitch Destructor</a> by answer42 · Enhanced by <a href="https://reddi.tech" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-400">Redditech</a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ── Screen 2: Analysing ─────────────────────────────── */
+function AnalysingScreen({ pitchText }) {
+  const lines = ['Reading between the lines...', 'Finding the weak spots...', 'Checking your traction claims...', 'A VC would ask...'];
+  const [idx, setIdx] = useState(0);
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setIdx(i => (i + 1) % lines.length);
+        setFade(true);
+      }, 400);
+    }, 2400);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6">
+      <p className={`text-3xl font-semibold text-txt transition-opacity duration-400 ${fade ? 'opacity-100' : 'opacity-0'}`}>
+        {lines[idx]}
+      </p>
+      <div className="mt-6 w-12 h-12 border-4 border-gray-700 border-t-red-500 rounded-full animate-spin" />
+      <p className="mt-10 max-w-xl text-center text-gray-600 text-sm leading-relaxed line-clamp-4">
+        {pitchText}
+      </p>
+    </div>
+  );
+}
+
+/* ── Score Bar ────────────────────────────────────────── */
+function ScoreBar({ score }) {
+  const [width, setWidth] = useState(0);
+  useEffect(() => { requestAnimationFrame(() => setWidth(score)); }, [score]);
+  return (
+    <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mt-2">
+      <div className="h-full rounded-full bar-fill" style={{ width: `${width}%`, background: scoreColor(score) }} />
+    </div>
+  );
+}
+
+/* ── Screen 3: Results ───────────────────────────────── */
+function ResultsScreen({ result, onReset }) {
+  const d = result.dimensions;
+  const dims = [
+    { key: 'hook', label: 'Hook' },
+    { key: 'problem_clarity', label: 'Problem Clarity' },
+    { key: 'solution', label: 'Solution' },
+    { key: 'market_size', label: 'Market Size' },
+    { key: 'business_model', label: 'Business Model' },
+    { key: 'traction', label: 'Traction' },
+    { key: 'founder_market_fit', label: 'Founder-Market Fit' },
+  ];
+
+  const stageLabel = {
+    'pre-seed': 'Pre-seed',
+    'seed': 'Seed',
+    'series-a': 'Series A',
+    'unknown': 'Unknown stage',
+  }[result.stage_detected] || result.stage_detected;
+
+  const copyResults = useCallback(() => {
+    const lines = [
+      `Pitch Clinic Analysis${result.founder_name ? ': ' + result.founder_name : ''}`,
+      `Stage: ${stageLabel}`,
+      `Overall Score: ${result.overall_score}/100`,
+      `Verdict: ${result.overall_verdict}`,
+      '',
+      ...dims.map(({ key, label }) => {
+        const dim = d[key];
+        return dim ? `${label}: ${dim.score}/100 — ${dim.verdict}` : '';
+      }).filter(Boolean),
+      '',
+      `VC Kill Shot: ${d.vc_kill_shot?.question}`,
+      `Why: ${d.vc_kill_shot?.why}`,
+      '',
+      `Biggest Strength: ${result.biggest_strength}`,
+      `Fix One Thing: ${result.fix_one_thing}`,
+      '',
+      `Rewrite the Hook: ${result.rewrite_the_hook}`,
+      '',
+      `Next Steps:`,
+      ...(result.next_steps || []).map((s, i) => `${i + 1}. ${s}`),
+      '',
+      `Momentum Signal: ${result.momentum_signal}`,
+    ];
+    navigator.clipboard.writeText(lines.join('\n')).then(() => alert('Results copied to clipboard!'));
+  }, [result]);
+
+  if (!d) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6">
+        <p className="text-xl text-red-400 mb-4">Analysis returned incomplete data — dimensions missing.</p>
+        <button onClick={onReset}
+          className="px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-lg transition-colors">
+          Try Again →
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen p-6 md:p-10">
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-2">
+          <h1 className="text-3xl font-bold text-txt">
+            {result.founder_name || 'Pitch Analysis'}
+          </h1>
+          {result.stage_detected && result.stage_detected !== 'unknown' && (
+            <span className="inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              {stageLabel} detected
+            </span>
+          )}
+        </div>
+
+        {/* Big Score */}
+        <div className="text-center my-8">
+          <span className="text-8xl font-black" style={{ color: scoreColor(result.overall_score) }}>
+            {result.overall_score}
+          </span>
+          <span className="text-3xl text-gray-500 font-light">/100</span>
+        </div>
+        <p className="text-center text-xl text-gray-300 max-w-2xl mx-auto mb-10">
+          {result.overall_verdict}
+        </p>
+
+        {/* Dimension Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          {dims.map(({ key, label }) => {
+            const dim = d[key];
+            if (!dim) return null;
+            return (
+              <div key={key} className="bg-card border border-border rounded-xl p-5">
+                <div className="flex justify-between items-baseline mb-1">
+                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">{label}</h3>
+                  <span className="text-2xl font-bold" style={{ color: scoreColor(dim.score) }}>
+                    {dim.score}<span className="text-sm text-gray-500">/100</span>
+                  </span>
+                </div>
+                <ScoreBar score={dim.score} />
+                <p className="text-txt text-sm mt-3 leading-relaxed">{dim.verdict}</p>
+              </div>
+            );
+          })}
+
+          {/* VC Kill Shot */}
+          {d.vc_kill_shot && (
+            <div className="bg-card border-2 border-yellow-500/30 rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-yellow-500 uppercase tracking-wide mb-3">⚡ VC Kill Shot</h3>
+              <p className="text-yellow-400 font-semibold text-base leading-relaxed mb-2">
+                <span className="text-txt font-normal">"{d.vc_kill_shot.question}"</span>
+              </p>
+              <p className="text-gray-400 text-sm leading-relaxed">{d.vc_kill_shot.why}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Callout Boxes */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-5">
+            <h3 className="text-green-400 font-semibold mb-1 text-lg">💪 Biggest Strength</h3>
+            <p className="text-txt leading-relaxed">{result.biggest_strength}</p>
+          </div>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
+            <h3 className="text-red-400 font-semibold mb-1 text-lg">🎯 Fix One Thing</h3>
+            <p className="text-txt leading-relaxed">{result.fix_one_thing}</p>
+          </div>
+        </div>
+
+        {/* Rewrite the Hook */}
+        {result.rewrite_the_hook && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mb-4">
+            <h3 className="text-blue-400 font-semibold mb-2 text-lg">✍️ Rewrite the Hook</h3>
+            <p className="text-blue-100 text-base leading-relaxed italic">"{result.rewrite_the_hook}"</p>
+          </div>
+        )}
+
+        {/* Momentum Signal */}
+        {result.momentum_signal && (
+          <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-5 mb-4">
+            <h3 className="text-purple-400 font-semibold mb-1 text-lg">⚡ Momentum Signal</h3>
+            <p className="text-txt leading-relaxed">{result.momentum_signal}</p>
+          </div>
+        )}
+
+        {/* Next Steps */}
+        {result.next_steps && result.next_steps.length > 0 && (
+          <div className="bg-card border border-border rounded-xl p-5 mb-8">
+            <h3 className="text-txt font-semibold mb-3 text-lg">📋 Next Steps</h3>
+            <ol className="space-y-2">
+              {result.next_steps.map((step, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                  <p className="text-gray-300 text-sm leading-relaxed">{step}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="text-center flex gap-4 justify-center flex-wrap">
+          <button onClick={copyResults}
+            className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg text-lg transition-colors">
+            📋 Copy Results
+          </button>
+          <button onClick={onReset}
+            className="px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-lg transition-colors">
+            Run Another →
+          </button>
+        </div>
+
+        <p className="text-center text-xs text-gray-700 mt-8">
+          Pitch Clinic · Open source fork of <a href="https://pitch.answer42.io" target="_blank" rel="noopener noreferrer" className="underline">Pitch Destructor</a> by answer42
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ── App ──────────────────────────────────────────────── */
+function App() {
+  const [screen, setScreen] = useState('capture');
+  const [pitchText, setPitchText] = useState('');
+  const [result, setResult] = useState(null);
+
+  const handleSubmit = useCallback(async (text, ctx) => {
+    setPitchText(text);
+    setScreen('analysing');
+
+    const userMessage = `Analyse this startup pitch and return ONLY the JSON structure defined in the system prompt. No other text.
+
+Context:
+- Stage: ${ctx.stage}
+- Sector: ${ctx.sector}
+- Pitch type: ${ctx.pitchType}
+
+PITCH:
+${text}`;
+
+    try {
+      const res = await fetch('/api/anthropic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userMessage }]
+        })
+      });
+
+      const data = await res.json();
+      const rawText = (data.content?.[0]?.text || '').replace(/```json|```/g, '').trim();
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error('No JSON found in Claude response:', rawText);
+        throw new Error('No JSON in response');
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (parseErr) {
+        console.error('JSON parse failed. Raw text:', rawText);
+        throw parseErr;
+      }
+      console.log('Claude API parsed response:', parsed);
+      if (!parsed.dimensions) {
+        console.error('Missing dimensions in parsed response:', parsed);
+        throw new Error('Response missing dimensions: ' + rawText);
+      }
+      setResult(parsed);
+      setScreen('results');
+    } catch (err) {
+      console.error(err);
+      alert('Analysis failed. Please try again.');
+      setScreen('capture');
+    }
+  }, []);
+
+  const handleReset = useCallback(() => {
+    setScreen('capture');
+    setPitchText('');
+    setResult(null);
+  }, []);
+
+  if (screen === 'capture') return <CaptureScreen onSubmit={handleSubmit} />;
+  if (screen === 'analysing') return <AnalysingScreen pitchText={pitchText} />;
+  if (screen === 'results') return <ResultsScreen result={result} onReset={handleReset} />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
