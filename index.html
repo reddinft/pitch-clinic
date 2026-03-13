@@ -374,6 +374,69 @@ function ContextPanel({ stage, setStage, sector, setSector, pitchType, setPitchT
 }
 
 /* ── Screen 1: Capture ───────────────────────────────── */
+/* ── VoucherInput ─────────────────────────────────────── */
+function VoucherInput({ onVoucherApplied }) {
+  const [code, setCode] = useState('');
+  const [status, setStatus] = useState(null); // null | 'checking' | { valid, tier, reason }
+
+  const checkVoucher = async () => {
+    if (!code.trim()) return;
+    setStatus('checking');
+    try {
+      const res = await fetch('/api/validate-voucher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      setStatus(data);
+      if (data.valid) onVoucherApplied(data.tier, code.trim().toUpperCase());
+    } catch {
+      setStatus({ valid: false, reason: 'Network error' });
+    }
+  };
+
+  const handleKeyDown = (e) => { if (e.key === 'Enter') checkVoucher(); };
+
+  return (
+    <div style={{ marginTop: 16, textAlign: 'center' }}>
+      <p style={{ color: 'var(--txt-3)', fontSize: 13, marginBottom: 8 }}>Have a voucher code?</p>
+      <div style={{ display: 'flex', gap: 8, maxWidth: 320, margin: '0 auto' }}>
+        <input
+          value={code}
+          onChange={e => setCode(e.target.value.toUpperCase())}
+          onKeyDown={handleKeyDown}
+          placeholder="XXXX-XXXX-XXXX"
+          disabled={status && status !== 'checking' && status.valid}
+          style={{
+            flex: 1, padding: '8px 12px',
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 8, color: 'var(--txt)', fontFamily: 'monospace', fontSize: 14,
+          }}
+        />
+        <button
+          onClick={checkVoucher}
+          disabled={status === 'checking' || (status && status.valid)}
+          style={{
+            padding: '8px 16px', background: 'var(--red)', border: 'none',
+            borderRadius: 8, color: 'white', cursor: 'pointer', fontWeight: 600,
+            opacity: (status === 'checking' || (status && status.valid)) ? 0.6 : 1,
+          }}
+        >
+          {status === 'checking' ? '…' : status?.valid ? '✓' : 'Apply'}
+        </button>
+      </div>
+      {status && status !== 'checking' && (
+        <p style={{ marginTop: 8, fontSize: 13, color: status.valid ? '#22c55e' : '#f87171' }}>
+          {status.valid
+            ? `✓ ${status.tier.charAt(0).toUpperCase() + status.tier.slice(1)} tier unlocked`
+            : `✗ ${status.reason}`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CaptureScreen({ onSubmit }) {
   const [tab, setTab]           = useState('record');
   const [recording, setRecording]   = useState(false);
@@ -384,6 +447,8 @@ function CaptureScreen({ onSubmit }) {
   const [stage, setStage]           = useState('Not sure');
   const [sector, setSector]         = useState('Other');
   const [pitchType, setPitchType]   = useState('Other');
+  const [voucherTier, setVoucherTier] = useState(null);
+  const [voucherCode, setVoucherCode] = useState(null);
   const mediaRef  = useRef(null);
   const chunksRef = useRef([]);
   const timerRef  = useRef(null);
@@ -518,7 +583,8 @@ function CaptureScreen({ onSubmit }) {
                 />
                 <div style={{ marginTop: 16 }}>
                   <ContextPanel stage={stage} setStage={setStage} sector={sector} setSector={setSector} pitchType={pitchType} setPitchType={setPitchType} />
-                  <SubmitButton onClick={() => onSubmit(transcript, ctx)} disabled={!canSubmitRecord} />
+                  <VoucherInput onVoucherApplied={(tier, code) => { setVoucherTier(tier); setVoucherCode(code); }} />
+                  <SubmitButton onClick={() => onSubmit(transcript, ctx, voucherTier || 'free', voucherCode)} disabled={!canSubmitRecord} />
                 </div>
               </div>
             ) : (
@@ -579,7 +645,8 @@ function CaptureScreen({ onSubmit }) {
               onBlur={e => e.target.style.borderColor = 'var(--border)'}
             />
             <ContextPanel stage={stage} setStage={setStage} sector={sector} setSector={setSector} pitchType={pitchType} setPitchType={setPitchType} />
-            <SubmitButton onClick={() => onSubmit(typed, ctx)} disabled={!canSubmitType} />
+            <VoucherInput onVoucherApplied={(tier, code) => { setVoucherTier(tier); setVoucherCode(code); }} />
+            <SubmitButton onClick={() => onSubmit(typed, ctx, voucherTier || 'free', voucherCode)} disabled={!canSubmitType} />
           </div>
         )}
 
@@ -1155,24 +1222,26 @@ function App() {
       .catch(err => console.error('Failed to load shared session:', err));
   }, []);
 
-  const saveSession = useCallback(async (text, parsed) => {
+  const saveSession = useCallback(async (text, parsed, tier = 'free') => {
     setShareLoading(true);
     try {
       const res = await fetch('/api/save-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pitchText: text, result: parsed, tier: 'free' }),
+        body: JSON.stringify({ pitchText: text, result: parsed, tier }),
       });
       const data = await res.json();
       if (data.shortCode) setShortCode(data.shortCode);
+      return data.shortCode || null;
     } catch (err) {
       console.error('Failed to save session:', err);
+      return null;
     } finally {
       setShareLoading(false);
     }
   }, []);
 
-  const handleSubmit = useCallback(async (text, ctx) => {
+  const handleSubmit = useCallback(async (text, ctx, tier = 'free', voucherCode = null) => {
     setPitchText(text);
     setScreen('analysing');
     setShortCode(null);
@@ -1221,8 +1290,16 @@ ${text}`;
       }
       setResult(parsed);
       setScreen('results');
-      // Save session in background (non-blocking — share link appears shortly after)
-      saveSession(text, parsed);
+      // Save session in background, then redeem voucher if applicable
+      saveSession(text, parsed, tier).then(savedCode => {
+        if (voucherCode) {
+          fetch('/api/redeem-voucher', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: voucherCode, sessionId: savedCode }),
+          }).catch(e => console.warn('Voucher redemption failed:', e));
+        }
+      });
     } catch (err) {
       console.error(err);
       alert('Analysis failed. Please try again.');
